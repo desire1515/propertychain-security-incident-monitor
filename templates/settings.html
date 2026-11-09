@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}Settings | PCSIRM{% endblock %}
+{% block page_heading %}Settings{% endblock %}
+
+{% block content %}
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<div class="flash-container">
+    {% for category, message in messages %}
+    <div class="flash-message flash-{{ category }}">{{ message }}</div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+
+<div class="page-intro">
+    <div><h1>Account and System Settings</h1><p>Manage your PCSIRM account security and review system configuration.</p></div>
+</div>
+
+<div class="detail-grid">
+    <section class="panel detail-panel">
+        <div class="panel-heading"><h2>My Profile</h2></div>
+        <div class="info-list">
+            <div class="info-row"><span>Username</span><strong>{{ profile.username }}</strong></div>
+            <div class="info-row"><span>Role</span><strong>{{ profile.role|title }}</strong></div>
+            <div class="info-row"><span>Account status</span><strong>{{ 'Active' if profile.is_active else 'Inactive' }}</strong></div>
+            <div class="info-row"><span>Created</span><strong>{{ profile.created_at or 'Not available' }}</strong></div>
+        </div>
+        <p class="subtle-text">Username, role, and activation status are not self-editable.</p>
+    </section>
+
+    <section class="panel detail-panel">
+        <div class="panel-heading"><h2>Account Security</h2></div>
+        <form method="POST" action="{{ url_for('settings.update_password') }}" class="status-form">
+            <input type="hidden" name="csrf_token" value="{{ session.get('csrf_token') }}">
+            <div class="filter-group">
+                <label for="current_password">Current password</label>
+                <input id="current_password" name="current_password" type="password" autocomplete="current-password" maxlength="1024" required>
+            </div>
+            <div class="filter-group">
+                <label for="new_password">New password</label>
+                <input id="new_password" name="new_password" type="password" autocomplete="new-password" minlength="12" maxlength="1024" required>
+            </div>
+            <button type="submit" class="filter-button">Change password</button>
+        </form>
+        <p class="subtle-text">Passwords require at least 12 characters. Password values are never written to audit logs.</p>
+    </section>
+</div>
+
+{% if profile.role == 'admin' %}
+<section class="events-table-card report-section">
+    <div class="section-header"><div><h2>User Management</h2><p>Create analyst accounts and manage active user roles.</p></div></div>
+    <form method="POST" action="{{ url_for('settings.create_analyst_account') }}" class="event-filters confirm-action" data-confirm="Create this analyst account?">
+        <input type="hidden" name="csrf_token" value="{{ session.get('csrf_token') }}">
+        <div class="filter-group"><label for="new_username">Username</label><input id="new_username" name="username" maxlength="80" required></div>
+        <div class="filter-group"><label for="initial_password">Temporary password</label><input id="initial_password" name="password" type="password" autocomplete="new-password" minlength="12" maxlength="1024" required></div>
+        <button type="submit" class="filter-button">Create analyst</button>
+    </form>
+
+    <div class="table-responsive">
+        <table class="events-table">
+            <thead><tr><th>Username</th><th>Role</th><th>Status</th><th>Created</th><th>Account controls</th></tr></thead>
+            <tbody>
+                {% for user in users %}
+                <tr>
+                    <td>{{ user.username }}</td><td>{{ user.role|title }}</td>
+                    <td>{{ 'Active' if user.is_active else 'Inactive' }}</td>
+                    <td>{{ user.created_at or 'Not available' }}</td>
+                    <td>
+                        {% if user.id == profile.id %}
+                        <span>Current account; self-deactivation and self-demotion are blocked.</span>
+                        {% else %}
+                        <form method="POST" action="{{ url_for('settings.update_user_account', user_id=user.id) }}" class="event-filters confirm-action" data-confirm="Save role and account-status changes for {{ user.username }}?">
+                            <input type="hidden" name="csrf_token" value="{{ session.get('csrf_token') }}">
+                            <div class="filter-group">
+                                <label for="role-{{ user.id }}">Role</label>
+                                <select id="role-{{ user.id }}" name="role">
+                                    {% for role in roles %}
+                                    <option value="{{ role }}" {% if user.role == role %}selected{% endif %}>{{ role|title }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label for="active-{{ user.id }}">Account status</label>
+                                <select id="active-{{ user.id }}" name="is_active">
+                                    <option value="1" {% if user.is_active %}selected{% endif %}>Active</option>
+                                    <option value="0" {% if not user.is_active %}selected{% endif %}>Inactive</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="detail-link">Save user</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5">No user accounts found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <p class="subtle-text">The last active administrator cannot be disabled or demoted.</p>
+</section>
+{% endif %}
+
+<section class="panel detail-panel report-section">
+    <div class="panel-heading"><h2>System Information</h2></div>
+    <div class="info-list">
+        <div class="info-row"><span>Application</span><strong>{{ system_info.application }}</strong></div>
+        <div class="info-row"><span>Version</span><strong>{{ system_info.version }}</strong></div>
+        <div class="info-row"><span>Database</span><strong>{{ system_info.database }}</strong></div>
+        <div class="info-row"><span>Environment</span><strong>{{ system_info.environment }}</strong></div>
+        <div class="info-row"><span>Firebase monitoring</span><strong>{{ system_info.firebase }}</strong></div>
+        <div class="info-row"><span>Blockchain monitoring</span><strong>{{ system_info.blockchain }}</strong></div>
+    </div>
+    <div class="system-notice">No verified Firebase or Ethereum adapter is active. PCSIRM does not change or control external PropertyChain systems.</div>
+</section>
+
+<script src="{{ url_for('static', filename='js/settings.js') }}" defer></script>
+{% endblock %}

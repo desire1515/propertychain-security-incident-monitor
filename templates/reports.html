@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+
+{% block title %}Reports | PCSIRM{% endblock %}
+{% block page_heading %}Reports{% endblock %}
+
+{% block content %}
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<div class="flash-container">
+    {% for category, message in messages %}
+    <div class="flash-message flash-{{ category }}">{{ message }}</div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+
+<div class="page-intro report-heading">
+    <div>
+        <h1>Security Operations Reports</h1>
+        <p>Reports are generated from PCSIRM database records. SIMULATED and TEST activity remains explicitly classified.</p>
+    </div>
+    <button type="button" class="filter-button no-print" id="print-report">Print report</button>
+</div>
+
+<section class="filter-card no-print">
+    <form method="GET" action="{{ url_for('reports.reports_dashboard') }}" class="event-filters">
+        <div class="filter-group">
+            <label for="category">Report category</label>
+            <select id="category" name="category">
+                <option value="all" {% if not filters.category %}selected{% endif %}>All reports</option>
+                {% for category in categories %}
+                <option value="{{ category }}" {% if filters.category == category %}selected{% endif %}>
+                    {{ category|title }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label for="start_date">Start date</label>
+            <input id="start_date" type="date" name="start_date" value="{{ filters.start_date or '' }}">
+        </div>
+        <div class="filter-group">
+            <label for="end_date">End date</label>
+            <input id="end_date" type="date" name="end_date" value="{{ filters.end_date or '' }}">
+        </div>
+        <div class="filter-group">
+            <label for="severity">Severity</label>
+            <select id="severity" name="severity">
+                <option value="">All severities</option>
+                {% for severity in severities %}
+                <option value="{{ severity }}" {% if filters.severity == severity %}selected{% endif %}>
+                    {{ severity|title }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label for="classification">Classification</label>
+            <select id="classification" name="classification">
+                <option value="">All classifications</option>
+                {% for classification in classifications %}
+                <option value="{{ classification }}" {% if filters.classification == classification %}selected{% endif %}>
+                    {{ classification }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label for="incident_status">Incident status</label>
+            <select id="incident_status" name="incident_status">
+                <option value="">All statuses</option>
+                {% for status in incident_statuses %}
+                <option value="{{ status }}" {% if filters.incident_status == status %}selected{% endif %}>
+                    {{ status|title }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label for="record_status">Record status or action</label>
+            <input id="record_status" name="record_status" maxlength="200" value="{{ filters.record_status or '' }}" placeholder="e.g. acknowledged, completed">
+        </div>
+        <div class="filter-group">
+            <label for="source">Source or actor</label>
+            <input id="source" name="source" maxlength="200" value="{{ filters.source or '' }}" placeholder="Filter by source name">
+        </div>
+        <div class="filter-actions">
+            <button type="submit" class="filter-button">Apply filters</button>
+            <a class="reset-button" href="{{ url_for('reports.reports_dashboard') }}">Clear filters</a>
+        </div>
+    </form>
+    <form method="GET" action="{{ url_for('reports.export_report') }}" class="event-filters export-form">
+        <input type="hidden" name="start_date" value="{{ filters.start_date or '' }}">
+        <input type="hidden" name="end_date" value="{{ filters.end_date or '' }}">
+        <input type="hidden" name="severity" value="{{ filters.severity or '' }}">
+        <input type="hidden" name="classification" value="{{ filters.classification or '' }}">
+        <input type="hidden" name="incident_status" value="{{ filters.incident_status or '' }}">
+        <input type="hidden" name="record_status" value="{{ filters.record_status or '' }}">
+        <input type="hidden" name="source" value="{{ filters.source or '' }}">
+        <div class="filter-group">
+            <label for="export_category">Export category</label>
+            <select id="export_category" name="category">
+                {% for category in categories %}
+                <option value="{{ category }}" {% if (filters.category or 'events') == category %}selected{% endif %}>
+                    {{ category|title }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="filter-button">Download CSV</button>
+    </form>
+</section>
+
+{% if not data.reports %}
+<section class="events-empty-state"><h2>No report data</h2><p>No records match the selected category and filters.</p></section>
+{% endif %}
+
+{% if data.reports.events is defined %}
+<section class="events-table-card report-section">
+    <div class="section-header"><div><h2>Security Events</h2><p>REAL, SIMULATED, and TEST events are counted separately.</p></div><strong>{{ data.reports.events.total }} total</strong></div>
+    <div class="report-stat-grid">
+        {% for label, count in data.reports.events.by_severity.items() %}<div class="report-stat"><span>{{ label|title }}</span><strong>{{ count }}</strong></div>{% endfor %}
+    </div>
+    <div class="report-stat-grid">
+        {% for label, count in data.reports.events.by_classification.items() %}<div class="report-stat"><span>{{ label }} events</span><strong>{{ count }}</strong></div>{% endfor %}
+    </div>
+    <h3>Events by type</h3>
+    <div class="table-responsive"><table class="events-table"><thead><tr><th>Event type</th><th>Count</th></tr></thead><tbody>
+    {% for item in data.reports.events.by_event_type %}<tr><td>{{ item.event_type }}</td><td>{{ item.count }}</td></tr>{% else %}<tr><td colspan="2">No event records match these filters.</td></tr>{% endfor %}
+    </tbody></table></div>
+    <h3>Event records and sources</h3>
+    <div class="table-responsive"><table class="events-table"><thead><tr><th>Reference</th><th>Type</th><th>Source</th><th>Severity</th><th>Classification</th><th>Received</th></tr></thead><tbody>
+    {% for item in data.reports.events.records %}<tr><td>{{ item.event_reference }}</td><td>{{ item.event_type }}</td><td>{{ item.source }}</td><td>{{ item.severity|title }}</td><td>{{ item.classification }}</td><td>{{ item.received_at }}</td></tr>{% else %}<tr><td colspan="6">No event records match these filters.</td></tr>{% endfor %}
+    </tbody></table></div>
+</section>
+{% endif %}
+
+{% if data.reports.incidents is defined %}
+<section class="events-table-card report-section">
+    <div class="section-header"><div><h2>Incident Management</h2><p>Resolution time is taken from the incident status timeline when present.</p></div><strong>{{ data.reports.incidents.total }} total</strong></div>
+    <div class="report-stat-grid">
+        {% for label, count in data.reports.incidents.by_status.items() %}<div class="report-stat"><span>{{ label|title }}</span><strong>{{ count }}</strong></div>{% endfor %}
+    </div>
+    <div class="report-stat-grid">
+        {% for label, count in data.reports.incidents.by_severity.items() %}<div class="report-stat"><span>{{ label|title }} severity</span><strong>{{ count }}</strong></div>{% endfor %}
+        {% for label, count in data.reports.incidents.by_classification.items() %}<div class="report-stat"><span>{{ label }} incidents</span><strong>{{ count }}</strong></div>{% endfor %}
+    </div>
+    <div class="table-responsive"><table class="events-table"><thead><tr><th>Reference</th><th>Title</th><th>Severity</th><th>Classification</th><th>Status</th><th>Assigned analyst</th><th>Created</th><th>Resolved</th></tr></thead><tbody>
+    {% for item in data.reports.incidents.records %}<tr><td><a href="{{ url_for('incidents.incident_detail', incident_reference=item.incident_reference) }}">{{ item.incident_reference }}</a></td><td>{{ item.title }}</td><td>{{ item.severity|title }}</td><td>{{ item.classification }}</td><td>{{ item.status|title }}</td><td>{{ item.assigned_username or 'Unassigned' }}</td><td>{{ item.created_at }}</td><td>{{ item.resolved_at or '—' }}</td></tr>{% else %}<tr><td colspan="8">No incident records match these filters.</td></tr>{% endfor %}
+    </tbody></table></div>
+</section>
+{% endif %}
+
+{% if data.reports.detection is defined %}
+<section class="events-table-card report-section">
+    <div class="section-header"><div><h2>Detection</h2><p>Rule execution history is capped at the most recent 500 records.</p></div></div>
+    <div class="report-stat-grid">
+        <div class="report-stat"><span>Total rules</span><strong>{{ data.reports.detection.total_rules }}</strong></div>
+        <div class="report-stat"><span>Enabled</span><strong>{{ data.reports.detection.enabled_rules }}</strong></div>
+        <div class="report-stat"><span>Disabled</span><strong>{{ data.reports.detection.disabled_rules }}</strong></div>
+        <div class="report-stat"><span>Total alerts</span><strong>{{ data.reports.detection.total_alerts }}</strong></div>
+        <div class="report-stat"><span>Open alerts</span><strong>{{ data.reports.detection.open_alerts }}</strong></div>
+        <div class="report-stat"><span>Resolved alerts</span><strong>{{ data.reports.detection.resolved_alerts }}</strong></div>
+        {% for label, count in data.reports.detection.alerts_by_severity.items() %}<div class="report-stat"><span>{{ label|title }} alerts</span><strong>{{ count }}</strong></div>{% endfor %}
+    </div>
+    <h3>Rules</h3>
+    <div class="table-responsive"><table class="events-table"><thead><tr><th>Rule</th><th>Event type</th><th>Severity</th><th>Threshold</th><th>Window</th><th>State</th></tr></thead><tbody>
+    {% for item in data.reports.detection.rules %}<tr><td>{{ item.rule_name }}</td><td>{{ item.event_type }}</td><td>{{ item.severity|title }}</td><td>{{ item.threshold }}</td><td>{{ item.window_minutes }} min</td><td>{{ 'Enabled' if item.is_enabled else 'Disabled' }}</td></tr>{% else %}<tr><td colspan="6">No detection rules match these filters.</td></tr>{% endfor %}
+    </tbody></table></div>
+    <h3>Alerts</h3>
+    <div class="table-responsive"><table class="events-table"><thead><tr><th>Rule</th><th>Event</th><th>Severity</th><th>Classification</th><th>Status</th><th>Created</th></tr></thead><tbody>
+    {% for item in data.reports.detection.alerts %}<tr><td>{{ item.rule_name }}</td><td>{{ item.event_reference }}</td><td>{{ item.severity|title }}</td><td>{{ item.classification }}</td><td>{{ item.status|title }}</td><td>{{ item.created_at }}</td></tr>{% else %}<tr><td colspan="6">No alerts match these filters.</td></tr>{% endfor %}
+    </tbody></table></div>
+    <h3>Rule execution history</h3>
+    <div class="table-responsive"><table class="events-table"><thead><tr><th>Rule</th><th>Event</th><th>Classification</th><th>Result</th><th>Matching count</th><th>Executed</th></tr></thead><tbody>
+    {% for item in data.reports.detection.executions %}<tr><td>{{ item.rule_name }}</td><td>{{ item.event_reference }}</td><td>{{ item.classification }}</td><td>{{ 'Matched' if item.matched else 'Not matched' }}</td><td>{{ item.matching_count }}</td><td>{{ item.executed_at }}</td></tr>{% else %}<tr><td colspan="6">No rule executions match these filters.</td></tr>{% endfor %}
+    </tbody></table></div>
+</section>
+{% endif %}
+
+{% if data.reports.monitoring is defined %}
+<section class="events-table-card report-section">
+    <div class="section-header"><div><h2>Monitoring Sources</h2><p>Mode is distinct from connection state; planned and simulated sources are not real integrations.</p></div><strong>{{ data.reports.monitoring.total }} total</strong></div>
+    {% for group_name, group in [('By type', data.reports.monitoring.by_type), ('Operational status', data.reports.monitoring.by_operational_status), ('Connection status', data.reports.monitoring.by_connection_status), ('Monitoring mode', data.reports.monitoring.by_mode)] %}
+    <h3>{{ group_name }}</h3><div class="report-stat-grid">{% for item in group %}<div class="report-stat"><span>{{ item.label }}</span><strong>{{ item.count }}</strong></div>{% else %}<p>No sources.</p>{% endfor %}</div>
+    {% endfor %}
+    <div class="table-responsive"><table class="events-table"><thead><tr><th>Source</th><th>Type</th><th>Mode</th><th>Operational state</th><th>Connection</th><th>Enabled</th><th>Last check</th><th>Last successful check</th></tr></thead><tbody>
+    {% for item in data.reports.monitoring.records %}<tr><td>{{ item.source_name }}</td><td>{{ item.source_type }}</td><td>{{ item.monitoring_mode }}</td><td>{{ item.status|title }}</td><td>{{ item.connection_status }}</td><td>{{ 'Yes' if item.is_enabled else 'No' }}</td><td>{{ item.last_checked_at or '—' }}</td><td>{{ item.last_successful_check or '—' }}</td></tr>{% else %}<tr><td colspan="8">No monitoring sources match these filters.</td></tr>{% endfor %}
+    </tbody></table></div>
+</section>
+{% endif %}
+
+{% if data.reports.simulations is defined %}
+<section class="events-table-card report-section">
+    <div class="section-header"><div><h2>Simulations</h2><p>Simulation records and their generated alert associations; these are not real incidents.</p></div><strong>{{ data.reports.simulations.total }} total</strong></div>
+    <div class="report-stat-grid">{% for item in data.reports.simulations.by_scenario %}<div class="report-stat"><span>{{ item.label }}</span><strong>{{ item.count }}</strong></div>{% else %}<p>No simulations recorded.</p>{% endfor %}</div>
+    <div class="table-responsive"><table class="events-table"><thead><tr><th>Scenario</th><th>Status</th><th>Started</th><th>Completed</th><th>Initiated by</th><th>Events</th><th>Related alerts</th></tr></thead><tbody>
+    {% for item in data.reports.simulations.runs %}<tr><td>{{ item.scenario_name }}</td><td>{{ item.status|title }}</td><td>{{ item.started_at }}</td><td>{{ item.completed_at or '—' }}</td><td>{{ item.executed_by_username or 'Unknown' }}</td><td>{{ item.events_generated }}</td><td>{% for alert in item.alerts %}{{ alert.rule_name }} ({{ alert.severity|title }}, {{ alert.status|title }}){% if not loop.last %}; {% endif %}{% else %}None{% endfor %}</td></tr>{% else %}<tr><td colspan="7">No simulation runs match these filters.</td></tr>{% endfor %}
+    </tbody></table></div>
+</section>
+{% endif %}
+
+{% if data.reports.ingestion is defined %}
+<section class="events-table-card report-section">
+    <div class="section-header"><div><h2>Monitoring Ingestion History</h2><p>Job outcomes, imported event counts, duplicate skips, and sanitized failures.</p></div><strong>{{ data.reports.ingestion.total }} jobs</strong></div>
+    <div class="report-stat-grid"><div class="report-stat"><span>Events ingested</span><strong>{{ data.reports.ingestion.events_ingested }}</strong></div><div class="report-stat"><span>Duplicates skipped</span><strong>{{ data.reports.ingestion.duplicates_skipped }}</strong></div></div>
+    <div class="table-responsive"><table class="events-table"><thead><tr><th>Source</th><th>Status</th><th>Started</th><th>Initiated by</th><th>Seen</th><th>Ingested</th><th>Duplicates</th><th>Error</th></tr></thead><tbody>
+    {% for item in data.reports.ingestion.records %}<tr><td>{{ item.source_name or 'Unknown' }}</td><td>{{ item.status|title }}</td><td>{{ item.started_at }}</td><td>{{ item.started_by_username or 'System' }}</td><td>{{ item.events_seen }}</td><td>{{ item.events_ingested }}</td><td>{{ item.duplicates_skipped }}</td><td>{{ item.error_summary or '—' }}</td></tr>{% else %}<tr><td colspan="8">No ingestion jobs match these filters.</td></tr>{% endfor %}
+    </tbody></table></div>
+</section>
+{% endif %}
+
+{% if data.reports.actions is defined %}
+<section class="events-table-card report-section">
+    <div class="section-header"><div><h2>Incident Response Recommendations</h2><p>Recommendations are recorded work items. PCSIRM does not execute external containment or remediation.</p></div><strong>{{ data.reports.actions.total }} records</strong></div>
+    <div class="table-responsive"><table class="events-table"><thead><tr><th>Incident</th><th>Type</th><th>Status</th><th>Severity</th><th>Classification</th><th>Recorded by</th><th>Created</th><th>Completed</th><th>Description</th></tr></thead><tbody>
+    {% for item in data.reports.actions.records %}<tr><td>{{ item.incident_reference }}</td><td>{{ item.action_type|title }}</td><td>{{ item.action_status|replace('_', ' ')|title }}</td><td>{{ item.severity|title }}</td><td>{{ item.classification }}</td><td>{{ item.performed_by_username or 'Unknown' }}</td><td>{{ item.created_at }}</td><td>{{ item.completed_at or '—' }}</td><td>{{ item.description }}</td></tr>{% else %}<tr><td colspan="9">No response records match these filters.</td></tr>{% endfor %}
+    </tbody></table></div>
+</section>
+{% endif %}
+
+{% if data.reports.evidence is defined %}
+<section class="events-table-card report-section">
+    <div class="section-header"><div><h2>Evidence Integrity and Custody</h2><p>Uploaded files include stored SHA-256 values; metadata-only records are labeled distinctly.</p></div><strong>{{ data.reports.evidence.total }} evidence / {{ data.reports.evidence.custody_entries }} custody records</strong></div>
+    <div class="table-responsive"><table class="events-table"><thead><tr><th>Reference</th><th>Incident</th><th>Type</th><th>File</th><th>Size</th><th>SHA-256</th><th>Collected</th><th>By</th></tr></thead><tbody>
+    {% for item in data.reports.evidence.records %}<tr><td>{{ item.evidence_reference or item.id }}</td><td>{{ item.incident_reference }}</td><td>{{ item.evidence_type }}</td><td>{{ item.original_filename or 'Metadata/reference only' }}</td><td>{{ item.file_size or '—' }}</td><td>{{ item.sha256_hash or '—' }}</td><td>{{ item.collected_at }}</td><td>{{ item.collected_by_username or 'Unknown' }}</td></tr>{% else %}<tr><td colspan="8">No evidence matches these filters.</td></tr>{% endfor %}
+    </tbody></table></div>
+    <h3>Custody history</h3>
+    <div class="table-responsive"><table class="events-table"><thead><tr><th>Evidence</th><th>Incident</th><th>Action</th><th>Actor</th><th>Recorded</th><th>Details</th></tr></thead><tbody>
+    {% for item in data.reports.evidence.custody %}<tr><td>{{ item.evidence_reference or item.evidence_id }}</td><td>{{ item.incident_reference }}</td><td>{{ item.action }}</td><td>{{ item.actor_username or 'System' }}</td><td>{{ item.recorded_at }}</td><td>{{ item.details or '—' }}</td></tr>{% else %}<tr><td colspan="6">No custody history matches these filters.</td></tr>{% endfor %}
+    </tbody></table></div>
+</section>
+{% endif %}
+
+{% if data.reports.audit is defined %}
+<section class="events-table-card report-section">
+    <div class="section-header"><div><h2>User Activity and Audit</h2><p>Details are redacted before display and export. The table and CSV show at most the latest 1,000 matching entries.</p></div><strong>{{ data.reports.audit.total }} total</strong></div>
+    <div class="table-responsive"><table class="events-table"><thead><tr><th>Recorded</th><th>User</th><th>Role</th><th>Action</th><th>Details</th></tr></thead><tbody>
+    {% for item in data.reports.audit.records %}<tr><td>{{ item.recorded_at }}</td><td>{{ item.username or 'System' }}</td><td>{{ item.role or '—' }}</td><td>{{ item.action }}</td><td>{{ item.details or '—' }}</td></tr>{% else %}<tr><td colspan="5">No audit records match these filters.</td></tr>{% endfor %}
+    </tbody></table></div>
+</section>
+{% endif %}
+
+<script src="{{ url_for('static', filename='js/reports.js') }}" defer></script>
+{% endblock %}

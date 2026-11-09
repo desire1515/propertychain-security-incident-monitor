@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Detection Rule | PCSIRM{% endblock %}
+{% block page_heading %}Edit Detection Rule{% endblock %}
+
+{% block content %}
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<div class="flash-container">
+    {% for category, message in messages %}
+    <div class="flash-message flash-{{ category }}">{{ message }}</div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+
+<section class="panel detail-panel">
+    <div class="panel-heading"><h2>{{ rule.rule_name }}</h2></div>
+    <form method="POST" class="event-filters">
+        <input type="hidden" name="csrf_token" value="{{ session.get('csrf_token') }}">
+        <div class="filter-group">
+            <label for="rule_name">Rule name</label>
+            <input id="rule_name" name="rule_name" maxlength="120" value="{{ rule.rule_name }}" required>
+        </div>
+        <div class="filter-group">
+            <label for="event_type">Event type (* matches any type)</label>
+            <input id="event_type" name="event_type" maxlength="100" value="{{ rule.event_type }}" required>
+        </div>
+        <div class="filter-group">
+            <label for="severity">Alert severity</label>
+            <select id="severity" name="severity" required>
+                {% for severity in severities %}
+                <option value="{{ severity }}" {% if rule.severity == severity %}selected{% endif %}>
+                    {{ severity|title }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label for="threshold">Threshold</label>
+            <input id="threshold" name="threshold" type="number" min="1" max="10000" value="{{ rule.threshold }}" required>
+        </div>
+        <div class="filter-group">
+            <label for="window_minutes">Window (minutes)</label>
+            <input id="window_minutes" name="window_minutes" type="number" min="1" max="10080" value="{{ rule.window_minutes }}" required>
+        </div>
+        <div class="filter-group">
+            <label for="description">Description</label>
+            <input id="description" name="description" maxlength="2000" value="{{ rule.description or '' }}">
+        </div>
+        <div class="filter-actions">
+            <button type="submit" class="filter-button">Save Changes</button>
+            <a class="reset-button" href="{{ url_for('detection_rules.detection_rule_list') }}">Cancel</a>
+        </div>
+    </form>
+</section>
+{% endblock %}

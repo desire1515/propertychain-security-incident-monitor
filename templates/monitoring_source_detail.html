@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+
+{% block title %}{{ source.source_name }} | PCSIRM{% endblock %}
+{% block page_heading %}Monitoring Source Details{% endblock %}
+
+{% block content %}
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<div class="flash-container">
+    {% for category, message in messages %}
+    <div class="flash-message flash-{{ category }}">{{ message }}</div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+
+<div class="page-intro">
+    <div>
+        <h1>{{ source.source_name }}</h1>
+        <p>{{ source.source_type }} • {{ source.monitoring_mode }}</p>
+    </div>
+    <div class="event-total">
+        <strong>{{ source.connection_status }}</strong>
+        <span>Connection Status</span>
+    </div>
+</div>
+
+<div class="detail-grid">
+    <section class="panel detail-panel">
+        <div class="panel-heading">
+            <h2>Source Information</h2>
+        </div>
+        <div class="info-list">
+            <div class="info-row">
+                <span>Source Name</span>
+                <strong>{{ source.source_name }}</strong>
+            </div>
+            <div class="info-row">
+                <span>Source Type</span>
+                <strong>{{ source.source_type }}</strong>
+            </div>
+            <div class="info-row">
+                <span>Monitoring Mode</span>
+                <strong>{{ source.monitoring_mode }}</strong>
+            </div>
+            <div class="info-row">
+                <span>Connection Status</span>
+                <strong>{{ source.connection_status }}</strong>
+            </div>
+            <div class="info-row">
+                <span>Enabled</span>
+                <strong>{{ 'Yes' if source.is_enabled else 'No' }}</strong>
+            </div>
+            <div class="info-row">
+                <span>Description</span>
+                <strong>{{ source.description or 'No description provided.' }}</strong>
+            </div>
+            <div class="info-row">
+                <span>Last Checked</span>
+                <strong>{{ source.last_checked_at or 'Never' }}</strong>
+            </div>
+            <div class="info-row">
+                <span>Last Successful Check</span>
+                <strong>{{ source.last_successful_check or 'Never' }}</strong>
+            </div>
+            <div class="info-row">
+                <span>Last Error</span>
+                <strong>{{ source.last_error or 'No recent errors.' }}</strong>
+            </div>
+            <div class="info-row">
+                <span>Created At</span>
+                <strong>{{ source.created_at }}</strong>
+            </div>
+            <div class="info-row">
+                <span>Updated At</span>
+                <strong>{{ source.updated_at or source.created_at }}</strong>
+            </div>
+        </div>
+    </section>
+
+    <section class="panel detail-panel">
+        <div class="panel-heading">
+            <h2>Actions</h2>
+        </div>
+
+        <div class="source-action-stack">
+            {% if session.get('role') == 'admin' %}
+            <a href="{{ url_for('monitoring_sources.monitoring_source_edit', source_id=source.id) }}" class="filter-button">Edit Source</a>
+
+            <form method="POST" action="{{ url_for('monitoring_sources.monitoring_source_status', source_id=source.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ session.get('csrf_token') }}">
+                <div class="filter-group">
+                    <label for="status">Status</label>
+                    <select id="status" name="status">
+                        {% for item in ['ACTIVE', 'INACTIVE', 'NOT_CONNECTED', 'CONNECTED', 'DEGRADED', 'ERROR', 'DISABLED'] %}
+                        <option value="{{ item }}" {% if item == source.connection_status %}selected{% endif %}>{{ item }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="filter-button">Update Status</button>
+            </form>
+
+            <form method="POST" action="{{ url_for('monitoring_sources.monitoring_source_check', source_id=source.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ session.get('csrf_token') }}">
+                <div class="filter-group">
+                    <label for="result">Check Result</label>
+                    <select id="result" name="result">
+                        <option value="success">Success</option>
+                        <option value="failure">Failure</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="error">Error Details</label>
+                    <input type="text" id="error" name="error" placeholder="Optional error summary">
+                </div>
+                <button type="submit" class="filter-button">Record Check</button>
+            </form>
+
+            <form method="POST" action="{{ url_for('monitoring_sources.monitoring_source_poll', source_id=source.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ session.get('csrf_token') }}">
+                <button type="submit" class="filter-button">Poll Source Now</button>
+            </form>
+            {% else %}
+            <p class="subtle-text">Monitoring source actions are restricted to administrators.</p>
+            {% endif %}
+        </div>
+
+        <div class="system-notice">
+            Manual administrative checks are notes, not integration health checks. A poll reports unavailable unless a verified adapter has been implemented and configured. Planned or simulated sources do not connect to external systems.
+        </div>
+    </section>
+</div>
+
+<section class="events-table-card report-section">
+    <div class="section-header"><div><h2>Ingestion History</h2><p>Recorded poll attempts and duplicate-protected event imports.</p></div></div>
+    {% if ingestion_jobs %}
+    <div class="table-responsive">
+        <table class="events-table">
+            <thead><tr><th>Started</th><th>Status</th><th>Seen</th><th>Ingested</th><th>Duplicates</th><th>Error</th></tr></thead>
+            <tbody>
+                {% for job in ingestion_jobs %}
+                <tr><td>{{ job.started_at }}</td><td>{{ job.status|title }}</td><td>{{ job.events_seen }}</td><td>{{ job.events_ingested }}</td><td>{{ job.duplicates_skipped }}</td><td>{{ job.error_summary or '—' }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="events-empty-state"><p>No ingestion jobs have been recorded for this source.</p></div>
+    {% endif %}
+</section>
+{% endblock %}

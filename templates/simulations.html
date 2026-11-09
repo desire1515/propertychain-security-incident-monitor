@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}Simulations | PCSIRM{% endblock %}
+{% block page_heading %}Simulations{% endblock %}
+
+{% block content %}
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<div class="flash-container">
+    {% for category, message in messages %}
+    <div class="flash-message flash-{{ category }}">{{ message }}</div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+
+<div class="page-intro">
+    <div>
+        <h1>Controlled Security Simulations</h1>
+        <p>Generate local, clearly classified simulated events for rule and workflow testing.</p>
+    </div>
+</div>
+
+<div class="system-notice">
+    Simulations do not send network traffic, contact PropertyChain, call Firebase,
+    use Ethereum RPC, or perform containment actions. Generated events are always
+    classified SIMULATED.
+</div>
+
+{% if session.get('role') == 'admin' %}
+<section class="panel detail-panel">
+    <div class="panel-heading"><h2>Run a Scenario</h2></div>
+    <form method="POST" action="{{ url_for('simulations.simulation_list') }}" class="event-filters">
+        <input type="hidden" name="csrf_token" value="{{ session.get('csrf_token') }}">
+        <div class="filter-group">
+            <label for="scenario">Scenario</label>
+            <select id="scenario" name="scenario" required>
+                {% for key, scenario in scenarios.items() %}
+                <option value="{{ key }}">{{ scenario.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-actions"><button type="submit" class="filter-button">Run Simulation</button></div>
+    </form>
+    <div class="info-list">
+        {% for scenario in scenarios.values() %}
+        <div class="info-row">
+            <span>{{ scenario.name }}</span>
+            <strong>{{ scenario.description }}</strong>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+<section class="events-table-card">
+    <div class="section-header"><div><h2>Simulation History</h2><p>Recorded runs and generated event counts.</p></div></div>
+    {% if runs %}
+    <div class="table-responsive">
+        <table class="events-table">
+            <thead>
+                <tr><th>Scenario</th><th>Status</th><th>Events</th><th>Started</th><th>Completed</th><th>Executed By</th></tr>
+            </thead>
+            <tbody>
+                {% for run in runs %}
+                <tr>
+                    <td>{{ run.scenario_name }}</td>
+                    <td>{{ run.status|title }}</td>
+                    <td>{{ run.events_generated }}</td>
+                    <td>{{ run.started_at }}</td>
+                    <td>{{ run.completed_at or 'Not completed' }}</td>
+                    <td>{{ run.executed_by_username or 'Unknown' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="events-empty-state"><h3>No simulations run</h3><p>Completed runs will appear here.</p></div>
+    {% endif %}
+</section>
+{% endblock %}

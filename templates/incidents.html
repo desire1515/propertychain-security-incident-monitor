@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+
+{% block title %}Incident Management | PCSIRM{% endblock %}
+{% block page_heading %}Incident Management{% endblock %}
+
+{% block content %}
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<div class="flash-container">
+    {% for category, message in messages %}
+    <div class="flash-message flash-{{ category }}">{{ message }}</div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+
+<div class="page-intro">
+    <div>
+        <h1>Incident Management</h1>
+        <p>Track and investigate security incidents recorded by PCSIRM.</p>
+    </div>
+    <div class="event-total">
+        <strong>{{ total_incidents }}</strong>
+        <span>Total Incidents</span>
+    </div>
+</div>
+
+<section class="filter-card">
+    <form method="GET" action="{{ url_for('incidents.incident_list') }}" class="event-filters">
+
+        <div class="filter-group">
+            <label for="status">Status</label>
+            <select id="status" name="status">
+                <option value="">All Statuses</option>
+                {% for status in ['open', 'investigating', 'contained', 'resolved', 'closed'] %}
+                <option value="{{ status }}" {% if status_filter == status %}selected{% endif %}>
+                    {{ status|title }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label for="severity">Severity</label>
+            <select id="severity" name="severity">
+                <option value="">All Severities</option>
+                {% for level in ['low', 'medium', 'high', 'critical'] %}
+                <option value="{{ level }}" {% if severity_filter == level %}selected{% endif %}>
+                    {{ level|title }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label for="classification">Classification</label>
+            <select id="classification" name="classification">
+                <option value="">All Classifications</option>
+                {% for item in ['REAL', 'SIMULATED', 'TEST'] %}
+                <option value="{{ item }}" {% if classification_filter == item %}selected{% endif %}>
+                    {{ item }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="filter-actions">
+            <button type="submit" class="filter-button">Apply Filters</button>
+            <a href="{{ url_for('incidents.incident_list') }}" class="reset-button">Clear Filters</a>
+        </div>
+    </form>
+</section>
+
+<section class="events-table-card">
+    <div class="section-header">
+        <div>
+            <h2>Incident Register</h2>
+            <p>Tracked investigations and response activity.</p>
+        </div>
+        <span class="event-count">{{ total_incidents }} incidents</span>
+    </div>
+
+    {% if incidents %}
+    <div class="table-responsive">
+        <table class="events-table incidents-table">
+            <thead>
+                <tr>
+                    <th>Incident Reference</th>
+                    <th>Title</th>
+                    <th>Severity</th>
+                    <th>Status</th>
+                    <th>Classification</th>
+                    <th>Assigned Analyst</th>
+                    <th>Source Event</th>
+                    <th>Date Created</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for incident in incidents %}
+                <tr>
+                    <td><strong>{{ incident.incident_reference }}</strong></td>
+                    <td>{{ incident.title }}</td>
+                    <td>
+                        <span class="severity-badge severity-{{ incident.severity }}">
+                            {{ incident.severity|title }}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="status-badge status-{{ incident.status }}">
+                            {{ incident.status|title }}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="classification-badge classification-{{ incident.classification|lower }}">
+                            {{ incident.classification }}
+                        </span>
+                    </td>
+                    <td>{{ incident.assigned_username or 'Unassigned' }}</td>
+                    <td>{{ incident.source_event_reference or '—' }}</td>
+                    <td>{{ incident.created_at }}</td>
+                    <td>
+                        <a href="{{ url_for('incidents.incident_detail', incident_reference=incident.incident_reference) }}" class="detail-link">
+                            View Details
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="events-empty-state">
+        <div class="empty-icon">!</div>
+        <h3>No incidents match the current filters</h3>
+        <p>Try adjusting filters or create an incident from an unlinked event on the <a href="{{ url_for('events.security_events') }}">Security Events</a> page.</p>
+        <a href="{{ url_for('incidents.incident_list') }}" class="reset-button">Clear Filters</a>
+    </div>
+    {% endif %}
+</section>
+
+{% endblock %}

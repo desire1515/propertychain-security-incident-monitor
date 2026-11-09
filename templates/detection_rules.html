@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}Detection Rules | PCSIRM{% endblock %}
+{% block page_heading %}Detection Rules{% endblock %}
+
+{% block content %}
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<div class="flash-container">
+    {% for category, message in messages %}
+    <div class="flash-message flash-{{ category }}">{{ message }}</div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+
+<div class="page-intro">
+    <div>
+        <h1>Detection Rules</h1>
+        <p>Evaluate recorded events against configurable event-type and source thresholds.</p>
+    </div>
+</div>
+
+{% if session.get('role') == 'admin' %}
+<section class="panel detail-panel">
+    <div class="panel-heading"><h2>Create a Detection Rule</h2></div>
+    <form method="POST" action="{{ url_for('detection_rules.detection_rule_list') }}" class="event-filters">
+        <input type="hidden" name="csrf_token" value="{{ session.get('csrf_token') }}">
+        <div class="filter-group">
+            <label for="rule_name">Rule name</label>
+            <input id="rule_name" name="rule_name" maxlength="120" required>
+        </div>
+        <div class="filter-group">
+            <label for="event_type">Event type (`*` matches any type)</label>
+            <input id="event_type" name="event_type" maxlength="100" required>
+        </div>
+        <div class="filter-group">
+            <label for="severity">Alert severity</label>
+            <select id="severity" name="severity" required>
+                {% for severity in severities %}
+                <option value="{{ severity }}">{{ severity|title }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label for="threshold">Threshold</label>
+            <input id="threshold" name="threshold" type="number" min="1" max="10000" value="1" required>
+        </div>
+        <div class="filter-group">
+            <label for="window_minutes">Window (minutes)</label>
+            <input id="window_minutes" name="window_minutes" type="number" min="1" max="10080" value="60" required>
+        </div>
+        <div class="filter-group">
+            <label for="description">Description</label>
+            <input id="description" name="description" maxlength="2000">
+        </div>
+        <div class="filter-actions">
+            <button type="submit" class="filter-button">Create Rule</button>
+        </div>
+    </form>
+</section>
+{% endif %}
+
+<section class="events-table-card">
+    <div class="section-header">
+        <div><h2>Configured Rules</h2><p>Default and administrator-managed detection rules.</p></div>
+        <a class="detail-link" href="{{ url_for('detection_rules.detection_alert_list') }}">View alerts</a>
+    </div>
+    {% if rules %}
+    <div class="table-responsive">
+        <table class="events-table">
+            <thead>
+                <tr>
+                    <th>Rule</th><th>Event Type</th><th>Severity</th>
+                    <th>Threshold</th><th>Window</th><th>State</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for rule in rules %}
+                <tr>
+                    <td>
+                        <strong>{{ rule.rule_name }}</strong>
+                        <small>{{ rule.description or '' }}</small>
+                        {% if session.get('role') == 'admin' %}
+                        <a class="detail-link" href="{{ url_for('detection_rules.detection_rule_edit', rule_id=rule.id) }}">Edit</a>
+                        {% endif %}
+                    </td>
+                    <td>{{ rule.event_type }}</td>
+                    <td>{{ rule.severity|title }}</td>
+                    <td>{{ rule.threshold }}</td>
+                    <td>{{ rule.window_minutes }} min</td>
+                    <td>
+                        {{ 'Enabled' if rule.is_enabled else 'Disabled' }}
+                        {% if session.get('role') == 'admin' %}
+                        <form method="POST" action="{{ url_for('detection_rules.detection_rule_enabled', rule_id=rule.id) }}">
+                            <input type="hidden" name="csrf_token" value="{{ session.get('csrf_token') }}">
+                            <input type="hidden" name="is_enabled" value="{{ 'false' if rule.is_enabled else 'true' }}">
+                            <button type="submit" class="detail-link">
+                                {{ 'Disable' if rule.is_enabled else 'Enable' }}
+                            </button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state"><p>No detection rules are configured.</p></div>
+    {% endif %}
+</section>
+{% endblock %}

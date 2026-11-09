@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}{{ form_title }} | PCSIRM{% endblock %}
+{% block page_heading %}Monitoring Sources{% endblock %}
+
+{% block content %}
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<div class="flash-container">
+    {% for category, message in messages %}
+    <div class="flash-message flash-{{ category }}">{{ message }}</div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+
+<div class="page-intro">
+    <div>
+        <h1>{{ form_title }}</h1>
+        <p>Register or edit a monitoring source.</p>
+    </div>
+</div>
+
+<section class="panel detail-panel">
+    <form method="POST" class="status-form source-form">
+        <input type="hidden" name="csrf_token" value="{{ session.get('csrf_token') }}">
+        <div class="filter-group">
+            <label for="source_name">Source Name</label>
+            <input type="text" id="source_name" name="source_name" value="{{ source.source_name if source else '' }}" required>
+        </div>
+
+        <div class="filter-group">
+            <label for="source_type">Source Type</label>
+            <select id="source_type" name="source_type" required>
+                {% for item in source_types %}
+                <option value="{{ item }}" {% if source and source.source_type == item %}selected{% endif %}>{{ item }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label for="monitoring_mode">Monitoring Mode</label>
+            <select id="monitoring_mode" name="monitoring_mode" required>
+                {% for item in monitoring_modes %}
+                <option value="{{ item }}" {% if source and source.monitoring_mode == item %}selected{% elif not source and item == 'PLANNED' %}selected{% endif %}>{{ item }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label for="connection_status">Connection Status</label>
+            <select id="connection_status" name="connection_status" required>
+                {% for item in connection_statuses %}
+                <option value="{{ item }}" {% if source and source.connection_status == item %}selected{% elif not source and item == 'NOT_CONNECTED' %}selected{% endif %}>{{ item }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="filter-group checkbox-row">
+            <label class="checkbox-label" for="is_enabled">
+                <input type="checkbox" id="is_enabled" name="is_enabled" {% if source and source.is_enabled %}checked{% endif %}>
+                Enabled
+            </label>
+        </div>
+
+        <div class="filter-group full-width">
+            <label for="description">Description</label>
+            <textarea id="description" name="description" rows="5">{{ source.description if source and source.description else '' }}</textarea>
+        </div>
+
+        <div class="filter-actions">
+            <button type="submit" class="filter-button">{{ submit_label }}</button>
+            <a href="{{ url_for('monitoring_sources.monitoring_sources_list') }}" class="reset-button">Cancel</a>
+        </div>
+    </form>
+</section>
+
+{% endblock %}

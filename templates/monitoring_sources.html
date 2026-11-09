@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+
+{% block title %}Monitoring Sources | PCSIRM{% endblock %}
+{% block page_heading %}Monitoring Sources{% endblock %}
+
+{% block content %}
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<div class="flash-container">
+    {% for category, message in messages %}
+    <div class="flash-message flash-{{ category }}">{{ message }}</div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+
+<div class="page-intro">
+    <div>
+        <h1>Monitoring Sources</h1>
+        <p>Track planned, simulated, and monitored data sources for PCSIRM.</p>
+    </div>
+    <div class="event-total">
+        <strong>{{ total_sources }}</strong>
+        <span>Total Sources</span>
+    </div>
+</div>
+
+<section class="filter-card">
+    <form method="GET" action="{{ url_for('monitoring_sources.monitoring_sources_list') }}" class="event-filters">
+        <div class="filter-group search-group">
+            <label for="search">Search</label>
+            <input type="search" id="search" name="search" value="{{ search_query }}" placeholder="Search source name or description">
+        </div>
+
+        <div class="filter-group">
+            <label for="source_type">Source Type</label>
+            <select id="source_type" name="source_type">
+                <option value="">All Types</option>
+                {% for item in ['FIREBASE', 'BLOCKCHAIN', 'APPLICATION', 'SIMULATION', 'OTHER'] %}
+                <option value="{{ item }}" {% if source_type_filter == item %}selected{% endif %}>{{ item }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label for="monitoring_mode">Monitoring Mode</label>
+            <select id="monitoring_mode" name="monitoring_mode">
+                <option value="">All Modes</option>
+                {% for item in ['REAL', 'SIMULATED', 'PLANNED'] %}
+                <option value="{{ item }}" {% if monitoring_mode_filter == item %}selected{% endif %}>{{ item }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label for="connection_status">Connection Status</label>
+            <select id="connection_status" name="connection_status">
+                <option value="">All Statuses</option>
+                {% for item in ['NOT_CONNECTED', 'CONNECTED', 'DEGRADED', 'ERROR', 'DISABLED'] %}
+                <option value="{{ item }}" {% if connection_status_filter == item %}selected{% endif %}>{{ item }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label for="is_enabled">Enabled</label>
+            <select id="is_enabled" name="is_enabled">
+                <option value="">All</option>
+                <option value="true" {% if enabled_filter == 'true' %}selected{% endif %}>Enabled</option>
+                <option value="false" {% if enabled_filter == 'false' %}selected{% endif %}>Disabled</option>
+            </select>
+        </div>
+
+        <div class="filter-actions">
+            <button type="submit" class="filter-button">Apply Filters</button>
+            <a href="{{ url_for('monitoring_sources.monitoring_sources_list') }}" class="reset-button">Clear</a>
+        </div>
+    </form>
+</section>
+
+<section class="events-table-card">
+    <div class="section-header">
+        <div>
+            <h2>Source Registry</h2>
+            <p>Planned and active monitoring integrations.</p>
+        </div>
+        <a href="{{ url_for('monitoring_sources.monitoring_source_new') }}" class="filter-button">Add Source</a>
+    </div>
+
+    {% if sources %}
+    <div class="table-responsive">
+        <table class="events-table incidents-table">
+            <thead>
+                <tr>
+                    <th>Source Name</th>
+                    <th>Type</th>
+                    <th>Mode</th>
+                    <th>Connection</th>
+                    <th>Enabled</th>
+                    <th>Last Checked</th>
+                    <th>Last Successful Check</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for source in sources %}
+                <tr>
+                    <td><strong>{{ source.source_name }}</strong></td>
+                    <td>{{ source.source_type }}</td>
+                    <td>
+                        <span class="status-badge status-{{ source.monitoring_mode|lower }}">
+                            {{ source.monitoring_mode|title }}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="status-badge status-{{ source.connection_status|lower }}">
+                            {{ source.connection_status|title }}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="status-badge {% if source.is_enabled %}status-enabled{% else %}status-disabled{% endif %}">
+                            {{ 'Enabled' if source.is_enabled else 'Disabled' }}
+                        </span>
+                    </td>
+                    <td>{{ source.last_checked_at or 'Never' }}</td>
+                    <td>{{ source.last_successful_check or 'Never' }}</td>
+                    <td>
+                        <a href="{{ url_for('monitoring_sources.monitoring_source_detail', source_id=source.id) }}" class="detail-link">View</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="events-empty-state">
+        <div class="empty-icon">!</div>
+        <h3>No monitoring sources match the current filters</h3>
+        <p>Adjust filters or create a new monitoring source.</p>
+        <a href="{{ url_for('monitoring_sources.monitoring_sources_list') }}" class="reset-button">Clear Filters</a>
+    </div>
+    {% endif %}
+</section>
+
+<section class="events-table-card report-section">
+    <div class="section-header"><div><h2>Recent Ingestion Jobs</h2><p>Enabled adapters are polled only when explicitly scheduled or requested; unavailable adapters are recorded as such.</p></div></div>
+    {% if ingestion_jobs %}
+    <div class="table-responsive">
+        <table class="events-table">
+            <thead><tr><th>Source</th><th>Status</th><th>Started</th><th>Events seen</th><th>Ingested</th><th>Duplicates</th><th>Error</th></tr></thead>
+            <tbody>
+                {% for job in ingestion_jobs %}
+                <tr><td>{{ job.source_name or 'Unknown source' }}</td><td>{{ job.status|title }}</td><td>{{ job.started_at }}</td><td>{{ job.events_seen }}</td><td>{{ job.events_ingested }}</td><td>{{ job.duplicates_skipped }}</td><td>{{ job.error_summary or '—' }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="events-empty-state"><p>No monitoring ingestion jobs have been recorded.</p></div>
+    {% endif %}
+</section>
+
+{% endblock %}

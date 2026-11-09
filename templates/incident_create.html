@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}Create Incident | PCSIRM{% endblock %}
+{% block page_heading %}Create Incident{% endblock %}
+
+{% block content %}
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<div class="flash-container">
+    {% for category, message in messages %}
+    <div class="flash-message flash-{{ category }}">{{ message }}</div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+
+<div class="page-intro">
+    <div>
+        <h1>Create Incident from Security Event</h1>
+        <p>Review the source event and provide incident details. The event classification is preserved.</p>
+    </div>
+</div>
+
+<section class="detail-grid">
+    <div class="panel detail-panel">
+        <div class="panel-heading"><h2>Source Event</h2></div>
+        <div class="info-list">
+            <div class="info-row"><span>Reference</span><strong>{{ event.event_reference }}</strong></div>
+            <div class="info-row"><span>Event type</span><strong>{{ event.event_type }}</strong></div>
+            <div class="info-row"><span>Source</span><strong>{{ event.source }}</strong></div>
+            <div class="info-row"><span>Severity</span><strong>{{ event.severity|title }}</strong></div>
+            <div class="info-row"><span>Classification</span><strong>{{ event.classification }}</strong></div>
+            <div class="info-row"><span>Description</span><strong>{{ event.description }}</strong></div>
+        </div>
+    </div>
+
+    <div class="panel detail-panel">
+        <div class="panel-heading"><h2>Incident Details</h2></div>
+        <form method="POST" action="{{ url_for('incidents.create_incident_from_event', event_reference=event.event_reference) }}" class="status-form">
+            <input type="hidden" name="csrf_token" value="{{ session.get('csrf_token') }}">
+            <div class="filter-group">
+                <label for="title">Incident title</label>
+                <input id="title" name="title" maxlength="200" value="{{ values.title }}" required>
+            </div>
+            <div class="filter-group">
+                <label for="description">Description</label>
+                <textarea id="description" name="description" maxlength="5000" rows="5">{{ values.description }}</textarea>
+            </div>
+            <div class="filter-group">
+                <label for="severity">Severity</label>
+                <select id="severity" name="severity" required>
+                    {% for severity in severity_options %}
+                    <option value="{{ severity }}" {% if values.severity == severity %}selected{% endif %}>
+                        {{ severity|title }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <p class="subtle-text">Classification remains {{ event.classification }} from the linked event.</p>
+            <div class="filter-actions">
+                <button type="submit" class="filter-button">Create Incident</button>
+                <a class="reset-button" href="{{ url_for('events.security_events') }}">Cancel</a>
+            </div>
+        </form>
+    </div>
+</section>
+{% endblock %}

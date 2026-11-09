@@ -1,0 +1,25 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.env
+instance/
+*.db
+*.sqlite
+*.sqlite3
+
+# Private uploads and evidence
+uploads/
+evidence/
+private/
+*.log
+
+# Environment variants
+.env.*
+!.env.example
+
+# IDE and operating system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

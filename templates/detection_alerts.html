@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Detection Alerts | PCSIRM{% endblock %}
+{% block page_heading %}Detection Alerts{% endblock %}
+
+{% block content %}
+<div class="page-intro">
+    <div>
+        <h1>Detection Alerts</h1>
+        <p>Alerts link a matching rule to the event that triggered it.</p>
+    </div>
+    <div class="event-total">
+        <strong>{{ alerts|length }}</strong>
+        <span>Displayed Alerts</span>
+    </div>
+</div>
+
+<section class="filter-card">
+    <form method="GET" action="{{ url_for('detection_rules.detection_alert_list') }}" class="event-filters">
+        <div class="filter-group">
+            <label for="status">Alert status</label>
+            <select id="status" name="status">
+                <option value="" {% if not status_filter %}selected{% endif %}>All</option>
+                <option value="open" {% if status_filter == 'open' %}selected{% endif %}>Open</option>
+                {% for value in alert_statuses %}
+                <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ value|title }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-actions"><button type="submit" class="filter-button">Filter</button></div>
+    </form>
+</section>
+
+<section class="events-table-card">
+    {% if alerts %}
+    <div class="table-responsive">
+        <table class="events-table">
+            <thead>
+                <tr>
+                    <th>Created</th><th>Rule</th><th>Event</th>
+                    <th>Source</th><th>Severity</th><th>Status</th><th>Incident</th>
+                    {% if session.get('role') == 'admin' %}<th>Action</th>{% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for alert in alerts %}
+                <tr>
+                    <td>{{ alert.created_at }}</td>
+                    <td>{{ alert.rule_name }}</td>
+                    <td>
+                        <strong>{{ alert.event_reference }}</strong>
+                        <small>{{ alert.event_type }}</small>
+                    </td>
+                    <td>{{ alert.source }}</td>
+                    <td>
+                        <span class="severity-badge severity-{{ alert.severity }}">
+                            {{ alert.severity|title }}
+                        </span>
+                    </td>
+                    <td>
+                        {{ alert.status|title }}
+                        <details>
+                            <summary>History ({{ alert.history|length }})</summary>
+                            {% for change in alert.history %}
+                            <small>{{ change.changed_at }} — {{ change.previous_status or 'Created' }} → {{ change.new_status }} by {{ change.changed_by_username or 'System' }}</small>
+                            {% endfor %}
+                        </details>
+                    </td>
+                    <td>{{ alert.incident_reference or '—' }}</td>
+                    {% if session.get('role') == 'admin' %}
+                    <td>
+                        <form method="POST" action="{{ url_for('detection_rules.detection_alert_status', alert_id=alert.id) }}">
+                            <input type="hidden" name="csrf_token" value="{{ session.get('csrf_token') }}">
+                            {% set next_status = {'open': 'acknowledged', 'acknowledged': 'investigating', 'investigating': 'resolved', 'resolved': 'open'}[alert.status] %}
+                            <input type="hidden" name="status" value="{{ next_status }}">
+                            <button type="submit" class="detail-link">
+                                {{ next_status|replace('_', ' ')|title }}
+                            </button>
+                        </form>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="events-empty-state">
+        <h3>No matching detection alerts</h3>
+        <p>Alerts will be recorded when enabled rules match incoming security events.</p>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

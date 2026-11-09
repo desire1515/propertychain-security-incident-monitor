@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard | PCSIRM{% endblock %}
+
+{% block content %}
+
+<div class="welcome-section">
+    <div>
+        <h1>Security Overview</h1>
+        <p>Review recorded security events, incident activity, and source status.</p>
+    </div>
+    <span class="live-indicator">LOCAL OPERATIONS</span>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <span class="stat-label">Total Security Events</span>
+        <h2>{{ stats.total_events }}</h2>
+        <p>Recorded events</p>
+    </div>
+    <div class="stat-card">
+        <span class="stat-label">Total Incidents</span>
+        <h2>{{ stats.total_incidents }}</h2>
+        <p>Tracked incidents</p>
+    </div>
+    <div class="stat-card">
+        <span class="stat-label">Open Incidents</span>
+        <h2>{{ stats.open_incidents }}</h2>
+        <p>Require investigation</p>
+    </div>
+    <div class="stat-card">
+        <span class="stat-label">Investigating</span>
+        <h2>{{ stats.investigating_incidents }}</h2>
+        <p>Active investigations</p>
+    </div>
+    <div class="stat-card">
+        <span class="stat-label">Critical Incidents</span>
+        <h2>{{ stats.critical_incidents }}</h2>
+        <p>Not yet closed</p>
+    </div>
+    <div class="stat-card">
+        <span class="stat-label">Verified Active Sources</span>
+        <h2>{{ stats.active_sources }}</h2>
+        <p>Real sources with a successful check</p>
+    </div>
+    <div class="stat-card">
+        <span class="stat-label">Real Events</span>
+        <h2>{{ stats.real_events }}</h2>
+        <p>Classified as real</p>
+    </div>
+    <div class="stat-card">
+        <span class="stat-label">Simulated Events</span>
+        <h2>{{ stats.simulated_events }}</h2>
+        <p>Classified as simulated</p>
+    </div>
+    <div class="stat-card">
+        <span class="stat-label">Test Events</span>
+        <h2>{{ stats.test_events }}</h2>
+        <p>Classified as test data</p>
+    </div>
+</div>
+
+<div class="content-grid">
+    <section class="panel">
+        <div class="panel-heading">
+            <h2>Recent Security Events</h2>
+            <span class="subtle-text">Latest recorded activity</span>
+        </div>
+
+        {% if recent_events %}
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Reference</th>
+                        <th>Event</th>
+                        <th>Source</th>
+                        <th>Severity</th>
+                        <th>Classification</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for event in recent_events %}
+                    <tr>
+                        <td>{{ event.event_reference }}</td>
+                        <td>{{ event.event_type }}</td>
+                        <td>{{ event.source }}</td>
+                        <td>{{ event.severity }}</td>
+                        <td>{{ event.classification }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-icon">?</div>
+            <h3>No security events yet</h3>
+            <p>New security events will appear here when monitoring begins.</p>
+        </div>
+        {% endif %}
+    </section>
+
+    <section class="panel">
+        <div class="panel-heading">
+            <h2>Recent Incidents</h2>
+        </div>
+        {% if recent_incidents %}
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Incident</th>
+                        <th>Severity</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for incident in recent_incidents %}
+                    <tr>
+                        <td>
+                            <a class="detail-link" href="{{ url_for('incidents.incident_detail', incident_reference=incident.incident_reference) }}">
+                                {{ incident.incident_reference }}
+                            </a>
+                            <small>{{ incident.title }}</small>
+                        </td>
+                        <td>{{ incident.severity|title }}</td>
+                        <td>{{ incident.status|title }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <h3>No incidents recorded</h3>
+            <p>Incidents will appear here as they are created.</p>
+        </div>
+        {% endif %}
+    </section>
+</div>
+
+<div class="content-grid">
+    <section class="panel">
+        <div class="panel-heading"><h2>Incident Severity Distribution</h2></div>
+        {% if incident_severity_distribution %}
+        <div class="info-list">
+            {% for item in incident_severity_distribution %}
+            <div class="info-row">
+                <span>{{ item.severity|title }}</span>
+                <strong>{{ item.count }}</strong>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state"><p>No incident data to summarize.</p></div>
+        {% endif %}
+    </section>
+
+    <section class="panel">
+        <div class="panel-heading"><h2>Event Classification Distribution</h2></div>
+        {% if event_classification_distribution %}
+        <div class="info-list">
+            {% for item in event_classification_distribution %}
+            <div class="info-row">
+                <span>{{ item.classification }}</span>
+                <strong>{{ item.count }}</strong>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state"><p>No event data to summarize.</p></div>
+        {% endif %}
+    </section>
+</div>
+
+<section class="panel">
+    <div class="panel-heading">
+        <h2>Monitoring Source Health</h2>
+        <span class="subtle-text">No connection is assumed without a verified successful check.</span>
+    </div>
+    {% if source_health %}
+    <div class="table-responsive">
+        <table class="events-table">
+            <thead>
+                <tr>
+                    <th>Source</th>
+                    <th>Mode</th>
+                    <th>Connection</th>
+                    <th>Enabled</th>
+                    <th>Last Check</th>
+                    <th>Last Successful Check</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for source in source_health %}
+                <tr>
+                    <td>{{ source.source_name }}</td>
+                    <td>{{ source.monitoring_mode }}</td>
+                    <td>{{ source.connection_status }}</td>
+                    <td>{{ 'Yes' if source.is_enabled else 'No' }}</td>
+                    <td>{{ source.last_checked_at or 'Never' }}</td>
+                    <td>{{ source.last_successful_check or 'Never' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state"><p>No monitoring sources have been registered.</p></div>
+    {% endif %}
+</section>
+
+{% endblock %}

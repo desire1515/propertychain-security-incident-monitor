@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}PCSIRM{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+    <div class="app-layout">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-icon">P</div>
+                <div>
+                    <h2>PCSIRM</h2>
+                    <small>Security Operations</small>
+                </div>
+            </div>
+
+            <nav aria-label="Main navigation">
+                <p class="nav-label">MAIN MENU</p>
+
+                <a class="nav-link {% if request.endpoint == 'dashboard.dashboard' %}active{% endif %}"
+                   {% if request.endpoint == 'dashboard.dashboard' %}aria-current="page"{% endif %}
+                   href="{{ url_for('dashboard.dashboard') }}">
+                    Dashboard
+                </a>
+
+                <a class="nav-link {% if request.endpoint == 'events.security_events' %}active{% endif %}"
+                   {% if request.endpoint == 'events.security_events' %}aria-current="page"{% endif %}
+                   href="{{ url_for('events.security_events') }}">
+                    Security Events
+                </a>
+
+                <a class="nav-link {% if request.endpoint and request.endpoint.startswith('incidents.') %}active{% endif %}"
+                   {% if request.endpoint and request.endpoint.startswith('incidents.') %}aria-current="page"{% endif %}
+                   href="{{ url_for('incidents.incident_list') }}">
+                    Incident Management
+                </a>
+                <a class="nav-link {% if request.endpoint and request.endpoint.startswith('monitoring_sources.') %}active{% endif %}"
+                   {% if request.endpoint and request.endpoint.startswith('monitoring_sources.') %}aria-current="page"{% endif %}
+                   href="{{ url_for('monitoring_sources.monitoring_sources_list') }}">
+                    Monitoring Sources
+                </a>
+                <a class="nav-link {% if request.endpoint and request.endpoint.startswith('detection_rules.') %}active{% endif %}"
+                   {% if request.endpoint and request.endpoint.startswith('detection_rules.') %}aria-current="page"{% endif %}
+                   href="{{ url_for('detection_rules.detection_rule_list') }}">
+                    Detection Rules &amp; Alerts
+                </a>
+
+                <p class="nav-label">OPERATIONS</p>
+                <a class="nav-link {% if request.endpoint and request.endpoint.startswith('simulations.') %}active{% endif %}"
+                   {% if request.endpoint and request.endpoint.startswith('simulations.') %}aria-current="page"{% endif %}
+                   href="{{ url_for('simulations.simulation_list') }}">
+                    Simulations
+                </a>
+                <a class="nav-link {% if request.endpoint and request.endpoint.startswith('reports.') %}active{% endif %}"
+                   {% if request.endpoint and request.endpoint.startswith('reports.') %}aria-current="page"{% endif %}
+                   href="{{ url_for('reports.reports_dashboard') }}">
+                    Reports
+                </a>
+                <a class="nav-link {% if request.endpoint and request.endpoint.startswith('settings.') %}active{% endif %}"
+                   {% if request.endpoint and request.endpoint.startswith('settings.') %}aria-current="page"{% endif %}
+                   href="{{ url_for('settings.settings_page') }}">
+                    Settings
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <span class="status-dot"></span>
+                Local SOC workspace
+            </div>
+        </aside>
+
+        <main class="main-content" id="main-content">
+            <header class="topbar">
+                <div>
+                    <h3>{% block page_heading %}Dashboard{% endblock %}</h3>
+                    <p>PropertyChain Security Incident Response and Monitoring</p>
+                </div>
+
+                <div class="user-area">
+                    <div class="user-avatar" aria-hidden="true">{{ session.get('username', 'Analyst')[:1]|upper }}</div>
+                    <div>
+                        <strong>{{ session.get('username', 'Analyst') }}</strong>
+                        <small>{{ session.get('role', 'analyst')|title }}</small>
+                    </div>
+
+                    <form action="{{ url_for('auth.logout') }}" method="post">
+                        <input type="hidden" name="csrf_token" value="{{ session.get('csrf_token') }}">
+                        <button class="logout-button" type="submit">Logout</button>
+                    </form>
+                </div>
+            </header>
+
+            <section class="page-content">
+                {% block content %}{% endblock %}
+            </section>
+        </main>
+    </div>
+</body>
+</html>

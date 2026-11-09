@@ -1,0 +1,357 @@
+{% extends "base.html" %}
+
+{% block title %}{{ incident.incident_reference }} | PCSIRM{% endblock %}
+{% block page_heading %}Incident Investigation{% endblock %}
+
+{% block content %}
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<div class="flash-container">
+    {% for category, message in messages %}
+    <div class="flash-message flash-{{ category }}">{{ message }}</div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+
+<div class="page-intro">
+    <div>
+        <h1>{{ incident.title }}</h1>
+        <p>Incident reference: {{ incident.incident_reference }}</p>
+    </div>
+    <div class="event-total">
+        <strong>{{ incident.status|title }}</strong>
+        <span>Current Status</span>
+    </div>
+</div>
+
+<div class="detail-grid">
+    <section class="panel detail-panel">
+        <div class="panel-heading">
+            <h2>Incident Information</h2>
+        </div>
+
+        <div class="info-list">
+            <div class="info-row">
+                <span>Incident Reference</span>
+                <strong>{{ incident.incident_reference }}</strong>
+            </div>
+            <div class="info-row">
+                <span>Title</span>
+                <strong>{{ incident.title }}</strong>
+            </div>
+            <div class="info-row">
+                <span>Description</span>
+                <strong>{{ incident.description or 'No description recorded.' }}</strong>
+            </div>
+            <div class="info-row">
+                <span>Severity</span>
+                <strong>
+                    <span class="severity-badge severity-{{ incident.severity }}">
+                        {{ incident.severity|title }}
+                    </span>
+                </strong>
+            </div>
+            <div class="info-row">
+                <span>Status</span>
+                <strong>
+                    <span class="status-badge status-{{ incident.status }}">
+                        {{ incident.status|title }}
+                    </span>
+                </strong>
+            </div>
+            <div class="info-row">
+                <span>Classification</span>
+                <strong>
+                    <span class="classification-badge classification-{{ incident.classification|lower }}">
+                        {{ incident.classification }}
+                    </span>
+                </strong>
+            </div>
+            <div class="info-row">
+                <span>Assigned Analyst</span>
+                <strong>{{ incident.assigned_username or 'Unassigned' }}</strong>
+            </div>
+            <div class="info-row">
+                <span>Created Date</span>
+                <strong>{{ incident.created_at }}</strong>
+            </div>
+            <div class="info-row">
+                <span>Last Updated</span>
+                <strong>{{ incident.updated_at }}</strong>
+            </div>
+        </div>
+        {% if can_assign %}
+        <form method="POST" action="{{ url_for('incidents.change_incident_assignment', incident_reference=incident.incident_reference) }}" class="status-form">
+            <input type="hidden" name="csrf_token" value="{{ session.get('csrf_token') }}">
+            <div class="filter-group">
+                <label for="assigned_to">Assign to analyst</label>
+                <select id="assigned_to" name="assigned_to">
+                    <option value="">Unassigned</option>
+                    {% for user in assignable_users %}
+                    <option value="{{ user.id }}" {% if incident.assigned_to == user.id %}selected{% endif %}>
+                        {{ user.username }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="filter-button">Save Assignment</button>
+        </form>
+        <p class="subtle-text">Only administrators can change assignments. Eligible assignees are active analysts.</p>
+        {% endif %}
+    </section>
+
+    <section class="panel detail-panel">
+        <div class="panel-heading">
+            <h2>Related Security Event</h2>
+        </div>
+
+        {% if source_event %}
+        <div class="info-list">
+            <div class="info-row">
+                <span>Source Event Reference</span>
+                <strong>{{ source_event.event_reference }}</strong>
+            </div>
+            <div class="info-row">
+                <span>Event Type</span>
+                <strong>{{ source_event.event_type }}</strong>
+            </div>
+            <div class="info-row">
+                <span>Source</span>
+                <strong>{{ source_event.source }}</strong>
+            </div>
+            <div class="info-row">
+                <span>Severity</span>
+                <strong>
+                    <span class="severity-badge severity-{{ source_event.severity }}">
+                        {{ source_event.severity|title }}
+                    </span>
+                </strong>
+            </div>
+            <div class="info-row">
+                <span>Classification</span>
+                <strong>
+                    <span class="classification-badge classification-{{ source_event.classification|lower }}">
+                        {{ source_event.classification }}
+                    </span>
+                </strong>
+            </div>
+            <div class="info-row">
+                <span>Original Event Details</span>
+                <strong>{{ source_event.description }}</strong>
+            </div>
+            <div class="info-row">
+                <span>Received At</span>
+                <strong>{{ source_event.received_at }}</strong>
+            </div>
+        </div>
+        {% else %}
+        <div class="empty-state compact-empty-state">
+            <div class="empty-icon">?</div>
+            <h3>No linked security event</h3>
+            <p>This incident was created manually and is not associated with a recorded event.</p>
+        </div>
+        {% endif %}
+    </section>
+</div>
+
+<div class="detail-grid">
+    <section class="panel detail-panel">
+        <div class="panel-heading"><h2>Evidence Register</h2></div>
+        {% if evidence %}
+        <div class="table-responsive">
+            <table class="events-table">
+                <thead>
+                    <tr><th>Type</th><th>Description</th><th>Reference</th><th>File and integrity</th><th>Collected</th><th>By</th></tr>
+                </thead>
+                <tbody>
+                    {% for item in evidence %}
+                    <tr>
+                        <td>{{ item.evidence_type }}</td>
+                        <td>{{ item.description }}</td>
+                        <td>{{ item.evidence_data or 'No external reference' }}</td>
+                        <td>
+                            {% if item.storage_path %}
+                            <span>{{ item.original_filename }} ({{ item.file_size }} bytes)</span>
+                            <small>SHA-256: {{ item.sha256_hash }}</small>
+                            <a class="detail-link" href="{{ url_for('incidents.download_incident_evidence', evidence_id=item.id) }}">Download</a>
+                            <form method="POST" action="{{ url_for('incidents.verify_incident_evidence_file', evidence_id=item.id) }}">
+                                <input type="hidden" name="csrf_token" value="{{ session.get('csrf_token') }}">
+                                <button type="submit" class="detail-link">Verify integrity</button>
+                            </form>
+                            {% else %}
+                            Metadata/reference only
+                            {% endif %}
+                            {% if item.custody_history %}
+                            <details>
+                                <summary>Custody history ({{ item.custody_history|length }})</summary>
+                                {% for custody in item.custody_history %}
+                                <small>{{ custody.recorded_at }} — {{ custody.action|title }} by {{ custody.actor_username or 'System' }}: {{ custody.details }}</small>
+                                {% endfor %}
+                            </details>
+                            {% endif %}
+                        </td>
+                        <td>{{ item.collected_at }}</td>
+                        <td>{{ item.collected_by_username or 'Unknown' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state compact-empty-state"><p>No evidence records have been added.</p></div>
+        {% endif %}
+
+        <form method="POST" enctype="multipart/form-data" action="{{ url_for('incidents.collect_incident_evidence', incident_reference=incident.incident_reference) }}" class="status-form">
+            <input type="hidden" name="csrf_token" value="{{ session.get('csrf_token') }}">
+            <div class="filter-group">
+                <label for="evidence_type">Evidence type</label>
+                <select id="evidence_type" name="evidence_type" required>
+                    {% for item in ['LOG', 'SCREENSHOT', 'DOCUMENT', 'HASH', 'REFERENCE', 'OTHER'] %}
+                    <option value="{{ item }}">{{ item|title }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="evidence_description">Description</label>
+                <input id="evidence_description" name="description" maxlength="2000" required>
+            </div>
+            <div class="filter-group">
+                <label for="evidence_data">Evidence data or reference</label>
+                <input id="evidence_data" name="evidence_data" maxlength="5000">
+            </div>
+            <div class="filter-group">
+                <label for="evidence_file">Optional evidence file (TXT, LOG, CSV, PDF, PNG, JPEG; max 10 MB)</label>
+                <input id="evidence_file" name="evidence_file" type="file" accept=".txt,.log,.csv,.pdf,.png,.jpg,.jpeg">
+            </div>
+            <button type="submit" class="filter-button">Add Evidence Record</button>
+        </form>
+        <p class="subtle-text">Files are stored outside the public static directory, hashed with SHA-256, and appended to custody history. Entries are immutable; credential-like text is redacted.</p>
+    </section>
+
+    <section class="panel detail-panel">
+        <div class="panel-heading"><h2>Response Recommendations</h2></div>
+        {% if actions %}
+        <div class="info-list">
+            {% for action in actions %}
+            <div class="info-row">
+                <span>
+                    <strong>{{ action.action_type|title }} / {{ action.action_status|replace('_', ' ')|title }}</strong>
+                    <small>{{ action.description }}</small>
+                    <small>Recorded by {{ action.recorded_by_username or 'Unknown' }} at {{ action.created_at }}</small>
+                    {% if action.completed_at %}<small>Completed at {{ action.completed_at }}</small>{% endif %}
+                </span>
+                {% if (is_admin and action.action_status in ['proposed', 'approved', 'in_progress']) or (session.get('role') == 'analyst' and action.action_status == 'approved') %}
+                <span>
+                    {% if is_admin and action.action_status == 'proposed' %}
+                    <form method="POST" action="{{ url_for('incidents.change_incident_action_status', incident_reference=incident.incident_reference, action_id=action.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ session.get('csrf_token') }}">
+                        <input type="hidden" name="status" value="approved">
+                        <button type="submit" class="detail-link">Approve recommendation</button>
+                    </form>
+                    {% elif action.action_status == 'approved' %}
+                    <form method="POST" action="{{ url_for('incidents.change_incident_action_status', incident_reference=incident.incident_reference, action_id=action.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ session.get('csrf_token') }}">
+                        <input type="hidden" name="status" value="in_progress">
+                        <button type="submit" class="detail-link">Mark in progress</button>
+                    </form>
+                    {% elif is_admin and action.action_status == 'in_progress' %}
+                    <form method="POST" action="{{ url_for('incidents.change_incident_action_status', incident_reference=incident.incident_reference, action_id=action.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ session.get('csrf_token') }}">
+                        <input type="hidden" name="status" value="completed">
+                        <button type="submit" class="detail-link">Mark completed</button>
+                    </form>
+                    {% endif %}
+                    {% if is_admin %}
+                    <form method="POST" action="{{ url_for('incidents.change_incident_action_status', incident_reference=incident.incident_reference, action_id=action.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ session.get('csrf_token') }}">
+                        <input type="hidden" name="status" value="cancelled">
+                        <button type="submit" class="detail-link">Cancel</button>
+                    </form>
+                    {% endif %}
+                </span>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state compact-empty-state"><p>No response recommendations have been recorded.</p></div>
+        {% endif %}
+
+        <form method="POST" action="{{ url_for('incidents.record_incident_action', incident_reference=incident.incident_reference) }}" class="status-form">
+            <input type="hidden" name="csrf_token" value="{{ session.get('csrf_token') }}">
+            <div class="filter-group">
+                <label for="action_type">Record as</label>
+                <select id="action_type" name="action_type" required>
+                    <option value="RECOMMENDATION">Recommendation</option>
+                    <option value="SIMULATION">Controlled simulation</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="action_description">Description</label>
+                <input id="action_description" name="description" maxlength="2000" required>
+            </div>
+            <button type="submit" class="filter-button">Record Recommendation</button>
+        </form>
+        <div class="system-notice">PCSIRM records recommendations only. It never executes PropertyChain containment actions.</div>
+    </section>
+</div>
+
+<section class="panel detail-panel">
+    <div class="panel-heading">
+        <h2>Incident Timeline</h2>
+    </div>
+
+    {% if timeline %}
+    <div class="timeline-list">
+        {% for entry in timeline %}
+        <div class="timeline-item">
+            <span class="timeline-time">{{ entry.recorded_at }}</span>
+            <div class="timeline-content">
+                <strong>{{ entry.activity }}</strong>
+                <p>{{ entry.details or 'No additional details recorded.' }}</p>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state compact-empty-state">
+        <div class="empty-icon">!</div>
+        <h3>No timeline entries yet</h3>
+        <p>Timeline activity will appear here as the investigation progresses.</p>
+    </div>
+    {% endif %}
+</section>
+
+{% if is_admin %}
+<section class="panel status-panel">
+    <div class="panel-heading">
+        <h2>Update Incident Status</h2>
+    </div>
+
+    <form method="POST" action="{{ url_for('incidents.change_incident_status', incident_reference=incident.incident_reference) }}" class="status-form">
+        <input type="hidden" name="csrf_token" value="{{ session.get('csrf_token') }}">
+        <div class="filter-group">
+            <label for="status">Status</label>
+            <select id="status" name="status">
+                {% for status in status_options %}
+                <option value="{{ status }}" {% if incident.status == status %}selected{% endif %}>
+                    {{ status|title }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="filter-actions">
+            <button type="submit" class="filter-button">Update Status</button>
+        </div>
+    </form>
+
+    <div class="system-notice">
+        Incident response actions in PCSIRM are recorded or recommended actions only. They do not automatically modify the monitored PropertyChain system.
+    </div>
+</section>
+{% endif %}
+
+{% endblock %}

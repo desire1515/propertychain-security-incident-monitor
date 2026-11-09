@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In | PCSIRM</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="login-page">
+    <main class="login-container">
+        <section class="login-aside" aria-label="PCSIRM information">
+            <a class="login-brand-link" href="{{ url_for('auth.browser_login') }}" aria-label="PCSIRM sign in">
+                <span class="brand-icon">P</span>
+                <span class="login-brand-copy">
+                    <strong>PCSIRM</strong>
+                    <small>Security Operations</small>
+                </span>
+            </a>
+            <div class="login-aside-copy">
+                <span class="eyebrow">SECURITY OPERATIONS WORKSPACE</span>
+                <h1>Clarity and control for every incident.</h1>
+                <p>Monitor recorded events, investigate incidents, and coordinate response workflows in one place.</p>
+            </div>
+            <p class="login-aside-note">Local incident response and monitoring console</p>
+        </section>
+
+        <section class="login-card">
+            <div class="login-heading">
+                <span class="eyebrow">SECURE SIGN IN</span>
+                <h2>Welcome back</h2>
+                <p>Sign in to access your security monitoring dashboard.</p>
+            </div>
+
+            {% if error %}
+                <div class="login-error" role="alert">{{ error }}</div>
+            {% endif %}
+
+            <form method="POST" action="{{ url_for('auth.browser_login') }}">
+                <input type="hidden" name="csrf_token" value="{{ session.get('csrf_token') }}">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input
+                        type="text"
+                        id="username"
+                        name="username"
+                        placeholder="Enter your username"
+                        autocomplete="username"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        placeholder="Enter your password"
+                        autocomplete="current-password"
+                        required
+                    >
+                </div>
+
+                <button type="submit" class="login-button">
+                    Sign In
+                </button>
+            </form>
+
+            <p class="login-footer">
+                PropertyChain Security Incident Response and Monitoring
+            </p>
+        </section>
+    </main>
+</body>
+</html>
